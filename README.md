@@ -16,6 +16,12 @@ Optional features:
 - OTA update
 - Remote debug
 
+# Device photos:
+https://github.com/Alexey-Tsarev/SensorsBox/issues/1/
+
+# Zabbix charts:
+https://github.com/Alexey-Tsarev/SensorsBox/issues/2/
+
 # Electrical schema / Circuit diagram
 TODO
 
