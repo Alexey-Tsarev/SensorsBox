@@ -1,0 +1,179 @@
+version: '3'
+services:
+  # PostgreSQL
+  postgres:
+    image:             postgres:latest
+    container_name:    postgres
+    network_mode:      host
+    restart:           unless-stopped
+    stop_grace_period: 30s
+
+    environment:
+    - TERM=xterm
+    - POSTGRES_DB=${ZABBIX_DB}
+    - POSTGRES_USER
+    - POSTGRES_PASSWORD
+
+    labels:
+    - SERVICE_NAME=postgres
+
+    volumes:
+    - ${DOCKER_ROOT}/postgres_data:/var/lib/postgresql/data
+    - ${DOCKER_ROOT}/postgres_init:/docker-entrypoint-initdb.d
+
+    logging:
+      driver: journald
+      options:
+        tag: postgres
+
+    ports:
+    - "5432:5432"
+
+    command: -c 'listen_addresses=localhost'
+  # End PostgreSQL
+
+
+  # Blynk
+  blynk:
+    image:             alexeytsarev/blynk_server:0.41.11
+    container_name:    blynk
+    network_mode:      host
+    restart:           unless-stopped
+    stop_grace_period: 30s
+
+    environment:
+    - TERM=xterm
+    - WAIT_FOR=127.0.0.1:5432 # Wait Postgres
+    - WAIT_FOR_TIMEOUT=60
+    - POSTGRES_HOST
+    - POSTGRES_USER
+    - POSTGRES_PASSWORD
+
+    labels:
+    - SERVICE_NAME=blynk
+
+    logging:
+      driver: journald
+      options:
+        tag: blynk
+
+    volumes:
+    - ${DOCKER_ROOT}/blynk/data:/opt/blynk/data
+    - ${DOCKER_ROOT}/blynk/config:/opt/blynk/config
+    - ${DOCKER_ROOT}/log/blynk:/opt/blynk/logs
+
+    depends_on:
+    - postgres
+
+    command: -serverConfig config/server.properties
+  # End Blynk
+
+
+  # Apache, php 7.3
+  ap73:
+    image:             alexeytsarev/apache_php:2.4_7.3
+    container_name:    ap73
+    network_mode:      host
+    restart:           unless-stopped
+    stop_grace_period: 30s
+
+    environment:
+    - TERM=xterm
+
+    labels:
+    - SERVICE_NAME=ap73
+
+    volumes:
+    - /etc/passwd:/etc/passwd:ro
+    - /etc/group:/etc/group:ro
+    - /etc/localtime:/etc/localtime:ro
+    - /home:/home
+    - ${DOCKER_ROOT}/apache/sites-enabled:/etc/httpd/sites-enabled
+    - ${DOCKER_ROOT}/log/ap73:/var/log/httpd
+    - /var/run/mysql:/var/lib/mysql
+
+    logging:
+      driver: journald
+      options:
+        tag: ap73
+
+    ports:
+    - 8073:8073
+  # End Apache, php 7.3
+
+
+  # Tengine
+  nginx:
+    image:             alexeytsarev/tengine:2.3.2
+    container_name:    nginx
+    network_mode:      host
+    restart:           unless-stopped
+    stop_grace_period: 30s
+
+    environment:
+    - TERM=xterm
+
+    labels:
+    - SERVICE_NAME=nginx
+
+    volumes:
+    - /etc/passwd:/etc/passwd:ro
+    - /etc/group:/etc/group:ro
+    - /etc/localtime:/etc/localtime:ro
+    - /home:/home
+    - ${DOCKER_ROOT}/nginx/sites-enabled:/etc/nginx/sites-enabled
+    - ${DOCKER_ROOT}/letsencrypt:/etc/letsencrypt
+    - ${DOCKER_ROOT}/log/nginx:/var/log/nginx
+    - ${DOCKER_ROOT}/log/letsencrypt:/var/log/letsencrypt
+
+    logging:
+      driver: journald
+      options:
+        tag: nginx
+
+    ports:
+    - 80:80
+    - 443:443
+  # End Tengine
+
+
+  # Zabbix server
+  zabbix:
+    image:             zabbix/zabbix-server-pgsql:centos-4.0-latest
+    container_name:    zabbix
+    network_mode:      host
+    restart:           unless-stopped
+    stop_grace_period: 30s
+
+    logging:
+      driver: journald
+      options:
+        tag: zabbix
+
+    ports:
+    - 10051:10051
+
+    volumes:
+    - /etc/localtime:/etc/localtime:ro
+    - /etc/timezone:/etc/timezone:ro
+    - ${DOCKER_ROOT}/zabbix/alertscripts:/usr/lib/zabbix/alertscripts:ro
+    - ${DOCKER_ROOT}/zabbix/externalscripts:/usr/lib/zabbix/externalscripts:ro
+    - ${DOCKER_ROOT}/zabbix/modules:/var/lib/zabbix/modules:ro
+    - ${DOCKER_ROOT}/zabbix/enc:/var/lib/zabbix/enc:ro
+    - ${DOCKER_ROOT}/zabbix/ssh_keys:/var/lib/zabbix/ssh_keys:ro
+    - ${DOCKER_ROOT}/zabbix/mibs:/var/lib/zabbix/mibs:ro
+    - ${DOCKER_ROOT}/zabbix/snmptraps:/var/lib/zabbix/snmptraps:ro
+
+    environment:
+    - DB_SERVER_HOST=${POSTGRES_HOST}
+    - POSTGRES_DB=${ZABBIX_DB}
+    - POSTGRES_USER
+    - POSTGRES_PASSWORD
+    - ZBX_DBSCHEMA=public
+
+    labels:
+    - SERVICE_NAME=zabbix
+
+    depends_on:
+    - postgres
+  # End Zabbix server

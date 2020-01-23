@@ -1,0 +1,10 @@
+.idea/
+.pioenvs/
+.piolibdeps
+cmake-build-debug/
+CMakeListsPrivate.txt
+
+quick_deploy/home/www_default/public_html/www/feed/zabbix-sender/
+quick_deploy/home/www_default/public_html/www/zabbix/
+
+.DS_Store
